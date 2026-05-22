@@ -1,0 +1,42 @@
+name: Build Dalamud Plugin
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download Dalamud dev runtime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dalamudDevPath = "$env:USERPROFILE\\AppData\\Roaming\\XIVLauncherCN\\addon\\Hooks\\dev"
+          if (!(Test-Path $dalamudDevPath)) {
+            New-Item -ItemType Directory -Force -Path $dalamudDevPath | Out-Null
+          }
+          Invoke-WebRequest -Uri "https://github.com/ottercorp/dalamud-distrib/raw/refs/heads/main/stg/latest.zip" -OutFile "latest.zip"
+          Expand-Archive -Path "latest.zip" -DestinationPath $dalamudDevPath -Force
+        shell: pwsh
+
+      - name: Restore dependencies
+        run: dotnet restore DcTraveler.sln
+
+      - name: Build
+        run: dotnet build DcTraveler.sln -c Release --no-restore
+
+      - name: Upload plugin DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: DcTraveler-Plugin
+          path: bin/Release/*
